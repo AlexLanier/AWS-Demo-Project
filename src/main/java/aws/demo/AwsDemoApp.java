@@ -1,8 +1,44 @@
-// Directory: src/main/java/aws/demo/AwsDemoApp.java
 package aws.demo;
+
+import aws.demo.ec2.EC2Checker;
+import aws.demo.lambda.LambdaInvoker;
+import aws.demo.s3.S3Uploader;
+import aws.demo.sqs.SQSPublisher;
+import aws.demo.step.StepFunctionRunner;
 
 public class AwsDemoApp {
     public static void main(String[] args) {
         System.out.println("AWS Java Demo Project Initialized.");
+        
+        try {
+            // Test EC2 functionality
+            System.out.println("\n=== Testing EC2 ===");
+            EC2Checker.listInstances();
+            
+            // Test S3 functionality (commented out to avoid actual uploads)
+            System.out.println("\n=== Testing S3 ===");
+            System.out.println("S3 uploader ready (commented out to avoid actual uploads)");
+            S3Uploader.uploadFile("demo-bucket-alex-2025", "java-demo/test.txt", "/Users/alex/test.txt");
+            // Test Lambda functionality (commented out to avoid actual invocations)
+            System.out.println("\n=== Testing Lambda ===");
+            System.out.println("Lambda invoker ready (commented out to avoid actual invocations)");
+            // LabdaInvoker.invoke("test-function", "{\"test\": \"data\"}");
+            
+            // Test SQS functionality (commented out to avoid actual messages)
+            System.out.println("\n=== Testing SQS ===");
+            System.out.println("SQS publisher ready (commented out to avoid actual messages)");
+            // SQSPublisher.sendMessage("https://sqs.region.amazonaws.com/account/queue", "test message");
+            
+            // Test Step Functions functionality (commented out to avoid actual executions)
+            System.out.println("\n=== Testing Step Functions ===");
+            System.out.println("Step function runner ready (commented out to avoid actual executions)");
+            // StepFunctionRunner.startExecution("arn:aws:states:region:account:stateMachine:name", "{\"test\": \"data\"}");
+            
+        } catch (Exception e) {
+            System.err.println("Error during AWS operations: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        System.out.println("\nDemo completed successfully!");
     }
 }

@@ -10,17 +10,21 @@ import java.nio.file.Paths;
 
 public class S3Uploader {
     public static void uploadFile(String bucketName, String key, String filePath) {
-        S3Client s3 = S3Client.builder()
+        try (S3Client s3 = S3Client.builder()
                 .region(Region.US_EAST_1)
                 .credentialsProvider(DefaultCredentialsProvider.create())
-                .build();
+                .build()) {
 
-        PutObjectRequest putReq = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(key)
-                .build();
+            PutObjectRequest putReq = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build();
 
-        s3.putObject(putReq, Paths.get(filePath));
-        System.out.println("Uploaded to S3: " + key);
+            s3.putObject(putReq, Paths.get(filePath));
+            System.out.println("Uploaded to S3: " + key);
+        } catch (Exception e) {
+            System.err.println("Error uploading to S3: " + e.getMessage());
+            throw e;
+        }
     }
 }

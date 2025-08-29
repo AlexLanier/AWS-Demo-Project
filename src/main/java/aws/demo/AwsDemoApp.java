@@ -17,12 +17,10 @@ public class AwsDemoApp {
             
             // Test S3 functionality (commented out to avoid actual uploads)
             System.out.println("\n=== Testing S3 ===");
-            System.out.println("S3 uploader ready (commented out to avoid actual uploads)");
             S3Uploader.uploadFile("demo-bucket-alex-2025", "java-demo/test.txt", "/Users/alex/test.txt");
             // Test Lambda functionality (commented out to avoid actual invocations)
             System.out.println("\n=== Testing Lambda ===");
-            System.out.println("Lambda invoker ready (commented out to avoid actual invocations)");
-            // LabdaInvoker.invoke("test-function", "{\"test\": \"data\"}");
+            LambdaInvoker.invoke("demo-python-lambda", "{\"hello\":\"from-java\"}");
             
             // Test SQS functionality (commented out to avoid actual messages)
             System.out.println("\n=== Testing SQS ===");

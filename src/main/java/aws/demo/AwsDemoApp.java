@@ -24,9 +24,11 @@ public class AwsDemoApp {
             
             // Test SQS functionality (commented out to avoid actual messages)
             System.out.println("\n=== Testing SQS ===");
-            System.out.println("SQS publisher ready (commented out to avoid actual messages)");
-            // SQSPublisher.sendMessage("https://sqs.region.amazonaws.com/account/queue", "test message");
-            
+            SQSPublisher.sendMessage(
+                "https://sqs.us-east-1.amazonaws.com/050284121366/testQueueStandard",
+                "{\"event\":\"demo\",\"value\":123}"
+            );
+           
             // Test Step Functions functionality (commented out to avoid actual executions)
             System.out.println("\n=== Testing Step Functions ===");
             System.out.println("Step function runner ready (commented out to avoid actual executions)");

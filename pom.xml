@@ -26,7 +26,7 @@
     <!-- AWS BOM -->
     <aws.sdk.v2.version>2.25.19</aws.sdk.v2.version>
 
-    <!-- SonarCloud (projectKey can also come from CI env) -->
+    <!-- SonarCloud -->
     <sonar.organization>alex-portfolio</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
@@ -120,7 +120,7 @@
         </configuration>
       </plugin>
 
-      <!-- Run the demo app (optional) -->
+      <!-- Run locally if you want: mvn exec:java -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
@@ -140,7 +140,7 @@
         </configuration>
       </plugin>
 
-      <!-- JaCoCo: generate coverage XML SonarCloud reads -->
+      <!-- JaCoCo coverage -->
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
@@ -161,7 +161,30 @@
         </executions>
       </plugin>
 
-      <!-- (Optional) Pin sonar-maven-plugin so 'mvn verify sonar:sonar' is reproducible -->
+      <!-- NEW: build a runnable fat JAR for Docker/OpenShift -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <createDependencyReducedPom>true</createDependencyReducedPom>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>aws.demo.AwsDemoApp</mainClass>
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- (Optional) pin sonar-maven-plugin -->
       <plugin>
         <groupId>org.sonarsource.scanner.maven</groupId>
         <artifactId>sonar-maven-plugin</artifactId>

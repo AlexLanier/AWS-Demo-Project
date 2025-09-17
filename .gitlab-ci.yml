@@ -1,6 +1,6 @@
 image: maven:3.9-eclipse-temurin-21
 
-stages: [build, test, analyze, gate]
+stages: [build, test, analyze, gate, image, deploy]
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
@@ -20,7 +20,7 @@ build:
     - branches
     - merge_requests
 
-# ---------- Test (JUnit results visible in MR UI) ----------
+# ---------- Test ----------
 test:
   stage: test
   script:
@@ -71,3 +71,60 @@ quality_gate:
   only:
     - master
     - merge_requests
+
+# ---------- Build & push container image (Kaniko; no privileged runner) ----------
+container:publish:
+  stage: image
+  image:
+    name: gcr.io/kaniko-project/executor:latest
+    entrypoint: [""]
+  needs: ["quality_gate"]      # or ["sonar:scan"] if you don't want to hard-gate
+  variables:
+    DOCKER_CONFIG: /kaniko/.docker
+  script:
+    - mkdir -p "$DOCKER_CONFIG"
+    - |
+      printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}\n' \
+        "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > "$DOCKER_CONFIG/config.json"
+    - |
+      DESTS="--destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA} \
+             --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}"
+      if [ "$CI_COMMIT_BRANCH" = "master" ]; then
+        DESTS="$DESTS --destination ${CI_REGISTRY_IMAGE}:latest"
+      fi
+      /kaniko/executor \
+        --context "${CI_PROJECT_DIR}" \
+        --dockerfile "${CI_PROJECT_DIR}/Dockerfile" \
+        $DESTS
+  only:
+    - master
+    - merge_requests
+
+# ---------- Deploy to OpenShift (dev) ----------
+deploy:ocp:
+  stage: deploy
+  image: quay.io/openshift/origin-cli:latest
+  needs: ["container:publish"]
+  variables:
+    OCP_SERVER: $OCP_DEV_SERVER       # set in GitLab CI variables
+    OCP_TOKEN:  $OCP_DEV_TOKEN        # service account token
+    OCP_NAMESPACE: $OCP_DEV_NAMESPACE # e.g. myapp-dev
+    IMG: "$CI_REGISTRY_IMAGE:${CI_COMMIT_REF_SLUG}"
+  script:
+    - oc login "$OCP_SERVER" --token="$OCP_TOKEN" --insecure-skip-tls-verify=true
+    - oc new-project "$OCP_NAMESPACE" || oc project "$OCP_NAMESPACE"
+    - oc delete secret gitlab-registry -n "$OCP_NAMESPACE" --ignore-not-found
+    - |
+      oc create secret docker-registry gitlab-registry \
+        --docker-server="$CI_REGISTRY" \
+        --docker-username="$CI_REGISTRY_USER" \
+        --docker-password="$CI_REGISTRY_PASSWORD" \
+        --docker-email="none@example.com" -n "$OCP_NAMESPACE"
+    - oc secrets link default gitlab-registry --for=pull -n "$OCP_NAMESPACE"
+    - sed "s|REPLACE_IMAGE|$IMG|g" k8s/deployment.yaml | oc apply -f - -n "$OCP_NAMESPACE"
+    - oc apply -f k8s/service.yaml -n "$OCP_NAMESPACE"
+    - oc apply -f k8s/route.yaml -n "$OCP_NAMESPACE"
+    - oc rollout status deploy/myapp -n "$OCP_NAMESPACE"
+    - oc get route myapp -n "$OCP_NAMESPACE" -o wide
+  only:
+    - master

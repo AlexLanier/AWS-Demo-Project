@@ -1,0 +1,7 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata: { name: aws-demo-project }
+spec:
+  to: { kind: Service, name: aws-demo-project }
+  port: { targetPort: http }
+  tls: { termination: edge }

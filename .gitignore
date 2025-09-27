@@ -40,3 +40,30 @@ build/
 
 ### Maven ###
 dependency-reduced-pom.xml
+
+### Security & Credentials ###
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+aws-credentials
+.env
+.env.local
+.env.*.local
+secrets.properties
+credentials.properties
+*.secret
+.private
+
+# Compiled Java classes
+*.class
+
+# Maven local distributions (don’t vendor tools)
+apache-maven-*/          # any extracted apache-maven dir (e.g., apache-maven-3.9.8/)
+apache-maven-*.tar.gz    # any downloaded apache-maven tarball
+
+# (Optional) Broader archives if you routinely download tools here:
+# *.tar.gz

@@ -1,22 +1,19 @@
 # syntax=docker/dockerfile:1.7
 
 # ---- Build stage ----
-    FROM maven:3.9-eclipse-temurin-21 AS build
-    WORKDIR /src
-    
-    COPY pom.xml .
-    RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -q dependency:go-offline
-    
-    COPY . .
-    RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -DskipTests package
-    
-    # ---- Runtime stage (OpenShift-friendly) ----
-    FROM eclipse-temurin:21-jre-alpine
-    WORKDIR /app
-    # allow arbitrary non-root UID (OpenShift default) to read/write
-    RUN mkdir -p /app && chgrp -R 0 /app && chmod -R g+rwX /app
-    COPY --from=build /src/target/*.jar /app/app.jar
-    
-    EXPOSE 8080
-    ENTRYPOINT ["java","-XX:MaxRAMPercentage=75.0","-XX:+UseStringDeduplication","-jar","/app/app.jar"]
+FROM maven:3.9.8-eclipse-temurin-17 as build
+WORKDIR /app
+COPY pom.xml .
+RUN mvn -q -B dependency:go-offline
+COPY src ./src
+#RUN mvn -q -B package -DskipTests
+RUN mvn -q -B package
+# ---- Runtime stage ----
+FROM gcr.io/distroless/java17-debian12
+WORKDIR /app
+COPY --from=build /app/target/*-SNAPSHOT.jar /app/app.jar
+USER nonroot:nonroot
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+UseStringDeduplication"
+EXPOSE 8080
+ENTRYPOINT ["java","-jar","/app/app.jar"]
     

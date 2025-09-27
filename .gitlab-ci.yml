@@ -1,130 +1,48 @@
-image: maven:3.9-eclipse-temurin-21
-
-stages: [build, test, analyze, gate, image, deploy]
-
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - .m2/repository/
+stages:
+  - test
+  - sonar
+  - build
+  - deploy
 
 variables:
-  MAVEN_CLI_OPTS: "-B -ntp"
-  GIT_DEPTH: "0"   # Sonar recommends full history for MR analysis
+  MAVEN_OPTS: "-Dmaven.test.failure.ignore=false"
+  GIT_DEPTH: "0"   # needed for Sonar blame
 
-# ---------- Build ----------
-build:
-  stage: build
-  script:
-    - mvn $MAVEN_CLI_OPTS clean compile
-  only:
-    - branches
-    - merge_requests
+cache:
+  paths:
+    - .m2/repository
 
-# ---------- Test ----------
 test:
+  image: maven:3.9.8-eclipse-temurin-17
   stage: test
   script:
-    - mvn $MAVEN_CLI_OPTS test
-  artifacts:
-    when: always
-    reports:
-      junit: "**/surefire-reports/*.xml"
-  only:
-    - branches
-    - merge_requests
+    - mvn -B verify
 
-# ---------- SonarCloud analysis ----------
-sonar:scan:
-  stage: analyze
-  script:
-    - >
-      mvn $MAVEN_CLI_OPTS verify
-      org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
-      -Dsonar.host.url=${SONAR_HOST_URL}
-      -Dsonar.login=${SONAR_TOKEN}
-      -Dsonar.organization=${SONAR_ORGANIZATION}
-      -Dsonar.projectKey=${SONAR_PROJECT_KEY}
-      -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+sonar:
+  image: maven:3.9.8-eclipse-temurin-17
+  stage: sonar
   needs: ["test"]
-  only:
-    - master
-    - merge_requests
+  script:
+    - mvn -B sonar:sonar -Dsonar.login=${SONAR_TOKEN}
+  allow_failure: false
 
-# ---------- (Optional) Fail pipeline if Quality Gate fails ----------
-quality_gate:
-  stage: gate
-  image: alpine:3.20
-  needs: ["sonar:scan"]
-  script: |
-    apk add --no-cache curl jq
-    echo "Waiting for SonarCloud Quality Gate..."
-    for i in $(seq 1 30); do
-      STATUS=$(curl -s -u ${SONAR_TOKEN}: \
-        "${SONAR_HOST_URL}/api/qualitygates/project_status?projectKey=${SONAR_PROJECT_KEY}" \
-        | jq -r '.projectStatus.status')
-      echo "Quality Gate: ${STATUS}"
-      if [ "$STATUS" = "OK" ]; then exit 0; fi
-      if [ "$STATUS" = "ERROR" ]; then exit 1; fi
-      sleep 5
-    done
-    echo "Timed out waiting for Quality Gate"; exit 1
-  only:
-    - master
-    - merge_requests
-
-# ---------- Build & push container image (Kaniko; no privileged runner) ----------
-container:publish:
-  stage: image
+build_image:
+  stage: build
   image:
     name: gcr.io/kaniko-project/executor:latest
     entrypoint: [""]
-  needs: ["quality_gate"]      # or ["sonar:scan"] if you don't want to hard-gate
-  variables:
-    DOCKER_CONFIG: /kaniko/.docker
   script:
-    - mkdir -p "$DOCKER_CONFIG"
-    - |
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}\n' \
-        "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > "$DOCKER_CONFIG/config.json"
-    - |
-      DESTS="--destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA} \
-             --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}"
-      if [ "$CI_COMMIT_BRANCH" = "master" ]; then
-        DESTS="$DESTS --destination ${CI_REGISTRY_IMAGE}:latest"
-      fi
-      /kaniko/executor \
-        --context "${CI_PROJECT_DIR}" \
-        --dockerfile "${CI_PROJECT_DIR}/Dockerfile" \
-        $DESTS
-  only:
-    - master
-    - merge_requests
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${REGISTRY_IMAGE}:${CI_COMMIT_SHA}"
+      --destination "${REGISTRY_IMAGE}:latest"
 
-# ---------- Deploy to OpenShift (dev) ----------
-deploy:ocp:
+deploy:
   stage: deploy
-  image: quay.io/openshift/origin-cli:latest
-  needs: ["container:publish"]
-  variables:
-    OCP_SERVER: $OCP_DEV_SERVER       # set in GitLab CI variables
-    OCP_TOKEN:  $OCP_DEV_TOKEN        # service account token
-    OCP_NAMESPACE: $OCP_DEV_NAMESPACE # e.g. myapp-dev
-    IMG: "$CI_REGISTRY_IMAGE:${CI_COMMIT_REF_SLUG}"
+  needs: ["build_image","sonar"]
   script:
-    - oc login "$OCP_SERVER" --token="$OCP_TOKEN" --insecure-skip-tls-verify=true
-    - oc new-project "$OCP_NAMESPACE" || oc project "$OCP_NAMESPACE"
-    - oc delete secret gitlab-registry -n "$OCP_NAMESPACE" --ignore-not-found
-    - |
-      oc create secret docker-registry gitlab-registry \
-        --docker-server="$CI_REGISTRY" \
-        --docker-username="$CI_REGISTRY_USER" \
-        --docker-password="$CI_REGISTRY_PASSWORD" \
-        --docker-email="none@example.com" -n "$OCP_NAMESPACE"
-    - oc secrets link default gitlab-registry --for=pull -n "$OCP_NAMESPACE"
-    - sed "s|REPLACE_IMAGE|$IMG|g" k8s/deployment.yaml | oc apply -f - -n "$OCP_NAMESPACE"
-    - oc apply -f k8s/service.yaml -n "$OCP_NAMESPACE"
-    - oc apply -f k8s/route.yaml -n "$OCP_NAMESPACE"
-    - oc rollout status deploy/myapp -n "$OCP_NAMESPACE"
-    - oc get route myapp -n "$OCP_NAMESPACE" -o wide
+    - echo "Deploy to OpenShift here"
+  when: manual
   only:
-    - master
+    - main

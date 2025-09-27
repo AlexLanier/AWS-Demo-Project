@@ -119,16 +119,17 @@ public class AwsDemoApp {
       // S3Uploader.uploadFile("demo-bucket-alex-2025", "java-demo/test.txt", "/Users/alex/test.txt");
 
       System.out.println("\n=== Testing Lambda ===");
-      LambdaInvoker.invoke("demo-python-lambda", "{\"hello\":\"from-java\"}");
+      String lambdaFunctionName = System.getenv().getOrDefault("LAMBDA_FUNCTION_NAME", "demo-python-lambda");
+      LambdaInvoker.invoke(lambdaFunctionName, "{\"hello\":\"from-java\"}");
 
       System.out.println("\n=== Testing SQS ===");
-      SQSPublisher.sendMessage(
-          "https://sqs.us-east-1.amazonaws.com/050284121366/testQueueStandard",
-          "{\"event\":\"demo\",\"value\":123}"
-      );
+      String sqsQueueUrl = System.getenv().getOrDefault("SQS_QUEUE_URL", 
+          "https://sqs.us-east-1.amazonaws.com/YOUR_ACCOUNT_ID/testQueueStandard");
+      SQSPublisher.sendMessage(sqsQueueUrl, "{\"event\":\"demo\",\"value\":123}");
 
       System.out.println("\n=== Testing Step Functions ===");
-      String stateMachineArn = "arn:aws:states:us-east-1:050284121366:stateMachine:DemoEchoStateMachine";
+      String stateMachineArn = System.getenv().getOrDefault("STEP_FUNCTION_ARN", 
+          "arn:aws:states:us-east-1:YOUR_ACCOUNT_ID:stateMachine:DemoEchoStateMachine");
       String input = "{\"source\":\"java-demo\",\"value\":123}";
       String execArn = StepFunctionRunner.startExecution(stateMachineArn, input);
       System.out.println("Started Step Functions execution: " + execArn);

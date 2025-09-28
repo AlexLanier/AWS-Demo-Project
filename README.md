@@ -6,7 +6,7 @@ A Java Maven project demonstrating AWS SDK v2 usage for various AWS services inc
 
 - Java 17 or higher
 - Maven 3.6 or higher
-- AWS Account (optional - for actual AWS operations)
+- AWS Account for actual AWS operations
 
 ## Project Structure
 
@@ -155,6 +155,11 @@ The application includes comprehensive error handling:
 - Use IAM roles with minimal required permissions
 - Consider using AWS STS for temporary credentials
 - Regularly rotate your access keys
+
+## Double Check
+
+- Make sure to review AWS Pricing tiers this project was done entirely on the free tier with the exception of deploying to EC2 on a RHEL 10 instance
+- Makes sure to have aws services running prior to running project. And remember to stop the instances to save money when done with the project
 
 ## License
 

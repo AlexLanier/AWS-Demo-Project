@@ -164,5 +164,3 @@ The application includes comprehensive error handling:
 ## License
 
 This project is for educational purposes. Feel free to modify and use as needed.
-trigger test
-trigger test
